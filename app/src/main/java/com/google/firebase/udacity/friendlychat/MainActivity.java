@@ -30,6 +30,10 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -43,8 +47,6 @@ public class MainActivity extends AppCompatActivity {
     public static final String ANONYMOUS = "anonymous";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
 
-    private FirebaseDatabase mFirebaseDatabase;
-    private DatabaseReference mMessagesDatabaseReference;
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
     private ProgressBar mProgressBar;
@@ -53,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
     private Button mSendButton;
 
     private String mUsername;
+    private FirebaseDatabase mFirebaseDatabase;
+    private DatabaseReference mMessagesDatabaseReference;
+    private ChildEventListener mChildEventListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,7 +65,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mUsername = ANONYMOUS;
+
         mFirebaseDatabase = FirebaseDatabase.getInstance();
+        FirebaseApp.initializeApp(this);
         mMessagesDatabaseReference = mFirebaseDatabase.getReference().child("messages");
 
         // Initialize references to views
@@ -77,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize progress bar
         mProgressBar.setVisibility(ProgressBar.INVISIBLE);
+
         // ImagePickerButton shows an image picker to upload a image for a message
         mPhotoPickerButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -84,17 +92,6 @@ public class MainActivity extends AppCompatActivity {
                 // TODO: Fire an intent to show an image picker
             }
         });
-
-        mSendButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // TODO: Send messages on click
-                FriendlyMessage friendlyMessage = new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null);
-                // Clear input box
-                mMessageEditText.setText("");
-            }
-        });
-
 
         // Enable Send button when there's text to send
         mMessageEditText.addTextChangedListener(new TextWatcher() {
@@ -121,12 +118,26 @@ public class MainActivity extends AppCompatActivity {
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // TODO: Send messages on click
-
+                FriendlyMessage friendlyMessage = new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null);
+                mMessagesDatabaseReference.push().setValue(friendlyMessage);
                 // Clear input box
                 mMessageEditText.setText("");
             }
         });
+
+        mChildEventListener = new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
+                mMessageAdapter.add(friendlyMessage);
+            }
+
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {}
+            public void onChildRemoved(DataSnapshot dataSnapshot) {}
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {}
+            public void onCancelled(DatabaseError databaseError) {}
+        };
+        mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
     }
 
     @Override
